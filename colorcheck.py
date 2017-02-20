@@ -1,18 +1,30 @@
-import requests
-import json
-import time
-import csv
-import os
+import requests, json, time, csv, os, sys, getopt
 
-# Business Unit 'touple' variables to more easily facilitate processing of different brands/markets
-athleta = ("athleta_allcaps-color-names.csv", "at/us")
-br = ("br-us_allcaps-color-names.csv",  "br/us")
-brfs = ("brfs-us_allcaps-color-names.csv", "brfs/us")
-gap = ("gap-us_allcaps-color-names.csv", "gp/us")
-gapfactory = ("gapfactory-us_allcaps-color-names.csv", "gpfs/us")
-oldnavy = ("on-us_allcaps-color-names.csv", "on/us")
+# Set variables for processing based on argument passed when script executed
+inputArg = str(sys.argv[1])
+if inputArg.lower() == "gap":
+	processingInputs = ("gap-us_allcaps-color-names.csv", "gp/us")
+elif inputArg.lower() == "gapfs":
+	processingInputs = ("gapfactory-us_allcaps-color-names.csv", "gpfs/us")
+elif inputArg.lower() == "br":
+	processingInputs = ("br-us_allcaps-color-names.csv",  "br/us")
+elif inputArg.lower() == "brfs":
+	processingInputs = ("brfs-us_allcaps-color-names.csv", "brfs/us")
+elif inputArg.lower() == "athleta":
+	processingInputs = ("athleta_allcaps-color-names.csv", "at/us")
+elif inputArg.lower() == "oldnavy":
+	processingInputs = ("on-us_allcaps-color-names.csv", "on/us")
+else:
+	print "Invalid argument -- enter 'gap', 'gapfs', 'br, 'brfs', 'athleta', or 'oldnavy' in order to run this script"
+	sys.exit(2)
 
-print "Start: ", time.asctime( time.localtime(time.time()) )	#Log script start time to console
+# Get key value required to access Product Catalog API from environment variable set by secret shell script; assemble header for request
+if os.environ.get("MY_API_KEY"):
+	MY_API_KEY = str(os.environ.get("MY_API_KEY"))
+	apiKey = {"ApiKey": MY_API_KEY}
+else:
+	print "Environment variable not set - cannot proceed"
+	sys.exit(2)
 
 # Function that checks each style color in Product Catalog response to see if its web color description is ALL CAPS, which is an indication that the copy process is incomplete
 def evaluateColorsInResponse(styles, output):
@@ -56,15 +68,13 @@ def evaluateColorsInResponse(styles, output):
 
 	return
 
-# Get Key for Product Catalog API from environment variable set by secret shell script, assemble header for request
-MY_API_KEY = str(os.environ.get("MY_API_KEY"))
-apiKey = {"ApiKey": MY_API_KEY}
+print "Start: ", time.asctime( time.localtime(time.time()) )	#Log script start time to console
 
 # Product Catalog API url to access all active and approved products for a business unit; do not need SKUs, so excluding them from the response makes things go faster
-apiUrl = "https://api.gap.com/commerce/product-catalogs/catalog/%s?&size=222&active=true&approvalStatus=APPROVED&includeSkus=false" % (athleta[1])	
+apiUrl = "https://api.gap.com/commerce/product-catalogs/catalog/%s?&size=222&active=true&approvalStatus=APPROVED&includeSkus=false" % (processingInputs[1])	
 
 # Prepare output file, write header row
-csvfile = open (athleta[0], "wb") 
+csvfile = open (processingInputs[0], "wb") 
 reportwriter = csv.writer(csvfile)
 reportwriter.writerow(["styleColorNumber","colorStartDate","colorEndDate","styleName","webColorDescription","promptColorName","searchColor","styleInventoryStatus"])
 
