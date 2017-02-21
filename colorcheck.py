@@ -103,7 +103,7 @@ x = 1	# Counter for while loop
 while x < pages:
 
 	# Make next request of Product Catalog
-	catalogResponse = requests.get(nextLink, headers=apiKey)	
+	catalogResponse = requests.get(nextLink, headers=apiKey)
 	catalogResponse.close()
 	apiStatusCode = catalogResponse.status_code
 
@@ -121,7 +121,7 @@ while x < pages:
 		nextLink = catalogResponse.json()["_links"]["next"]["href"]
 
 	# Log progress to console & increment counter
-	print x, "pages processed" 								
+	print x, "pages processed"
 	x += 1
 
 csvfile.close()												# Close output file
