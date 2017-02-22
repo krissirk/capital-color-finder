@@ -1,30 +1,36 @@
 import requests, json, time, csv, os, sys, getopt
 
-# Set variables for processing based on argument passed when script executed
-inputArg = str(sys.argv[1])
-if inputArg.lower() == "gap":
-	processingInputs = ("gap-us_allcaps-color-names.csv", "gp/us")
-elif inputArg.lower() == "gapfs":
-	processingInputs = ("gapfactory-us_allcaps-color-names.csv", "gpfs/us")
-elif inputArg.lower() == "br":
-	processingInputs = ("br-us_allcaps-color-names.csv",  "br/us")
-elif inputArg.lower() == "brfs":
-	processingInputs = ("brfs-us_allcaps-color-names.csv", "brfs/us")
-elif inputArg.lower() == "athleta":
-	processingInputs = ("athleta_allcaps-color-names.csv", "at/us")
-elif inputArg.lower() == "oldnavy":
-	processingInputs = ("on-us_allcaps-color-names.csv", "on/us")
+# Set variables for processing based on argument passed when script executed; exit if no or incorrect argument passed
+if len(sys.argv) > 1:
+	inputArg = str(sys.argv[1])
+	if inputArg.lower() == "gap":
+		processingInputs = ("gap-us_allcaps-color-names.csv", "gp/us")
+	elif inputArg.lower() == "gapfs":
+		processingInputs = ("gapfactory-us_allcaps-color-names.csv", "gpfs/us")
+	elif inputArg.lower() == "br":
+		processingInputs = ("br-us_allcaps-color-names.csv",  "br/us")
+	elif inputArg.lower() == "brfs":
+		processingInputs = ("brfs-us_allcaps-color-names.csv", "brfs/us")
+	elif inputArg.lower() == "athleta":
+		processingInputs = ("athleta_allcaps-color-names.csv", "at/us")
+	elif inputArg.lower() == "oldnavy":
+		processingInputs = ("on-us_allcaps-color-names.csv", "on/us")
+	else:
+		print "Invalid argument -- enter 'gap', 'gapfs', 'br, 'brfs', 'athleta', or 'oldnavy' in order to run this script"
+		sys.exit(2)
 else:
-	print "Invalid argument -- enter 'gap', 'gapfs', 'br, 'brfs', 'athleta', or 'oldnavy' in order to run this script"
+	print "No argument found -- enter 'gap', 'gapfs', 'br, 'brfs', 'athleta', or 'oldnavy' in order to run this script"
 	sys.exit(2)
 
-# Get key value required to access Product Catalog API from environment variable set by secret shell script; assemble header for request
+# Get key value required to access Product Catalog API from environment variable set by secret shell script and assemble header for request; exit if variable not set
 if os.environ.get("MY_API_KEY"):
 	MY_API_KEY = str(os.environ.get("MY_API_KEY"))
 	apiKey = {"ApiKey": MY_API_KEY}
 else:
 	print "Environment variable not set - cannot proceed"
 	sys.exit(2)
+
+##################### FUNCTION DEFINITIONS #####################
 
 # Function that checks each style color in Product Catalog response to see if its web color description is ALL CAPS, which is an indication that the copy process is incomplete
 def evaluateColorsInResponse(styles, output):
@@ -42,10 +48,10 @@ def evaluateColorsInResponse(styles, output):
 
 				# Grab parent style's inventory status from productStyle API
 				if items["_links"]["self"]:
-					productStyleUrl = items["_links"]["self"]["href"] + "?appId=kr5v4qu" # Update the 'appId' parameter to identify yourself
+					productStyleUrl = items["_links"]["self"]["href"] + "&appId=kr5v4qu" # Update the 'appId' parameter to identify yourself
 					productStyleResponse = requests.get(productStyleUrl)
 					productStyleResponse.close()
-
+					
 				# Conditionally variables to write to output file
 				if colors["endDate"]:
 					colorEndDate = colors["endDate"]
@@ -68,6 +74,24 @@ def evaluateColorsInResponse(styles, output):
 
 	return
 
+# Function that makes Product Catalog API request until successful response obtained, returns that response
+def apiRequest(url):
+
+	apiResponse = requests.get(url, headers=apiKey)
+	apiResponse.close()
+	apiStatusCode = apiResponse.status_code
+
+	# Make sure initial request is successful; if not, re-request until successful response obtained
+	while apiStatusCode != 200:
+		print url, " - ", apiStatusCode, ": ", apiResponse.elapsed
+		apiResponse = requests.get(url, headers=apiKey)
+		apiResponse.close()
+		apiStatusCode = apiResponse.status_code
+
+	return apiResponse
+
+##################### END OF FUNCTION DEFINITIONS ####################
+
 print "Start: ", time.asctime( time.localtime(time.time()) )	#Log script start time to console
 
 # Product Catalog API url to access all active and approved products for a business unit; do not need SKUs, so excluding them from the response makes things go faster
@@ -78,51 +102,34 @@ csvfile = open (processingInputs[0], "wb")
 reportwriter = csv.writer(csvfile)
 reportwriter.writerow(["styleColorNumber","colorStartDate","colorEndDate","styleName","webColorDescription","promptColorName","searchColor","styleInventoryStatus"])
 
-# Initial Product Catalog API request in the script - this gets the first batch of products processed...and determines how many total pages need to be iterated through
-catalogResponse = requests.get(apiUrl, headers=apiKey)
-catalogResponse.close()
-apiStatusCode = catalogResponse.status_code
+# Initial Product Catalog API request in the script - this gets the first batch of products to be processed and determines how many total pages need to be iterated through
+catalogResponse = apiRequest(apiUrl)
+pages = catalogResponse.json()["page"]["totalPages"]	# Grab total number of pages in Product Catalog API response
+print "Total pages to process: ", pages					# Log total number of pages that need to be processed to the console
 
-# Make sure initial request is successful; if not, re-request until successful response achieved...this block could probably be a function
-while apiStatusCode != 200:
-	print apiUrl, " - ", apiStatusCode, ": ", catalogResponse.elapsed
-	catalogResponse = requests.get(apiUrl, headers=apiKey)
-	catalogResponse.close()
-	apiStatusCode = catalogResponse.status_code
+# Check the initial response for problematic style colors
+evaluateColorsInResponse(catalogResponse.json()["_embedded"]["styles"],reportwriter)	
+print "1 page processed"
 
-evaluateColorsInResponse(catalogResponse.json()["_embedded"]["styles"],reportwriter)	# Processing of initial Product Catalog response
+# Grab URL of 'next' pagination link in Product Catalog response to process during first iteration of while loop
+nextLink = catalogResponse.json()["_links"]["next"]["href"]
 
-pages = catalogResponse.json()["page"]["totalPages"]		# Grab total number of pages in Product Catalog API response
-nextLink = catalogResponse.json()["_links"]["next"]["href"]	# Grab link for next Product Catalog page to process
-
-print "Total pages to process: ", pages	# Log total number of pages that need to be processed to the console
-
-x = 1	# Counter for while loop
+x = 1	# Initialize counter for while loop that will ensure the entire Product Catalog is processed
 
 # Process all remaining pages of Product Catalog response
 while x < pages:
 
-	# Make next request of Product Catalog
-	catalogResponse = requests.get(nextLink, headers=apiKey)
-	catalogResponse.close()
-	apiStatusCode = catalogResponse.status_code
+	# Make next request of Product Catalog and check the resulting response for problematic style colors
+	catalogResponse = apiRequest(nextLink)
+	evaluateColorsInResponse(catalogResponse.json()["_embedded"]["styles"],reportwriter)
 
-	# Make sure each request is successful; if not, re-request until successful response achieved...this block could probably be a function
-	while apiStatusCode != 200:
-		print nextLink, " - ", apiStatusCode, ": ", catalogResponse.elapsed
-		catalogResponse = requests.get(nextLink, headers=apiKey)
-		catalogResponse.close()
-		apiStatusCode = catalogResponse.status_code
-
-	evaluateColorsInResponse(catalogResponse.json()["_embedded"]["styles"],reportwriter)	# Processing of next request
-
-	# Grab 'next' pagination link for subsequent request until the data element is no longer in the response
+	# Grab URL of 'next' pagination link for subsequent request until the data element is no longer in the response (which will only happen during final iteration of loop)
 	if "next" in catalogResponse.json()["_links"]:
 		nextLink = catalogResponse.json()["_links"]["next"]["href"]
 
-	# Log progress to console & increment counter
-	print x, "pages processed"
+	# Increment counter & log progress to console
 	x += 1
+	print x, "pages processed"
 
 csvfile.close()												# Close output file
 print "End: ", time.asctime( time.localtime(time.time()) )	# Log script completion ending time to console
