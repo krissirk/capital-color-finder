@@ -33,7 +33,7 @@ else:
 ##################### FUNCTION DEFINITIONS #####################
 
 # Function that checks each style color in Product Catalog response to see if its web color description is ALL CAPS, which is an indication that the copy process is incomplete
-def evaluateColorsInResponse(styles, output):
+def evaluateColorsInResponse(styles, output, page):
 
 	for items in styles:						# Iterate through each style in the response
 
@@ -68,9 +68,9 @@ def evaluateColorsInResponse(styles, output):
 				else:
 					isInStock = ""
 
-				# Write product details to output file
+				# Write product details to output file; response page number recorded to assist with troubleshooting problematic data
 				output.writerow([colors["businessId"].encode('utf-8'), colors["startDate"].encode('utf-8'), colorEndDate, items["name"].encode('utf-8'),
-					colorName.encode('utf-8'), colors["promptColorName"].encode('utf-8'), searchColor, isInStock])
+					colorName.encode('utf-8'), colors["promptColorName"].encode('utf-8'), searchColor, isInStock, page])
 
 	return
 
@@ -100,7 +100,7 @@ apiUrl = "https://api.gap.com/commerce/product-catalogs/catalog/{0}?&size=222&ac
 # Prepare output file, write header row
 csvfile = open (processingInputs[0], "wb") 
 reportwriter = csv.writer(csvfile)
-reportwriter.writerow(["styleColorNumber","colorStartDate","colorEndDate","styleName","webColorDescription","promptColorName","searchColor","styleInventoryStatus"])
+reportwriter.writerow(["styleColorNumber","colorStartDate","colorEndDate","styleName","webColorDescription","promptColorName","searchColor","styleInventoryStatus","apiPageNumber"])
 
 # Initial Product Catalog API request in the script - this gets the first batch of products to be processed and determines how many total pages need to be iterated through
 catalogResponse = apiRequest(apiUrl, apiKey)
@@ -108,7 +108,7 @@ pages = catalogResponse.json()["page"]["totalPages"]	# Grab total number of page
 print "Total pages to process: ", pages					# Log total number of pages that need to be processed to the console
 
 # Check the initial response for problematic style colors
-evaluateColorsInResponse(catalogResponse.json()["_embedded"]["styles"],reportwriter)	
+evaluateColorsInResponse(catalogResponse.json()["_embedded"]["styles"],reportwriter,0)	
 print "1 page processed"
 
 # Grab URL of 'next' pagination link in Product Catalog response to process during first iteration of while loop
@@ -121,7 +121,7 @@ while x < pages:
 
 	# Make next request of Product Catalog and check the resulting response for problematic style colors
 	catalogResponse = apiRequest(nextLink, apiKey)
-	evaluateColorsInResponse(catalogResponse.json()["_embedded"]["styles"],reportwriter)
+	evaluateColorsInResponse(catalogResponse.json()["_embedded"]["styles"],reportwriter,x)
 
 	# Grab URL of 'next' pagination link for subsequent request until the data element is no longer in the response (which will only happen during final iteration of loop)
 	if "next" in catalogResponse.json()["_links"]:
