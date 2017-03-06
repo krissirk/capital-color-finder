@@ -111,10 +111,13 @@ print "Total pages to process: ", pages					# Log total number of pages that nee
 evaluateColorsInResponse(catalogResponse.json()["_embedded"]["styles"],reportwriter,0)	
 print "1 page processed"
 
-# Grab URL of 'next' pagination link in Product Catalog response to process during first iteration of while loop
-nextLink = catalogResponse.json()["_links"]["next"]["href"]
+# Grab URL of 'next' pagination link in Product Catalog response if it exists in order to process during first iteration of while loop
+if "next" in catalogResponse.json()["_links"]:
+	nextLink = catalogResponse.json()["_links"]["next"]["href"]
+	x = 1	# Initialize counter for while loop that will ensure the entire Product Catalog is processed
 
-x = 1	# Initialize counter for while loop that will ensure the entire Product Catalog is processed
+else:
+	x = pages + 1 # If no 'next' link, initialize counter such that it doesn't go into the while loop
 
 # Process all remaining pages of Product Catalog response
 while x < pages:
