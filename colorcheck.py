@@ -32,7 +32,8 @@ else:
 
 ##################### FUNCTION DEFINITIONS #####################
 
-# Function that checks each style color in Product Catalog response to see if its web color description is ALL CAPS, which is an indication that the copy process is incomplete
+# Function that checks each style color in Product Catalog response to see if its web color description is ALL CAPS or numeric
+# which is an indication that the copy process is incomplete
 def evaluateColorsInResponse(styles, output, page):
 
 	for items in styles:						# Iterate through each style in the response
@@ -41,7 +42,7 @@ def evaluateColorsInResponse(styles, output, page):
 
 			colorName = colors["colorName"]		# Grab web color description for child style color
 			
-			if colorName is None:				# Apparently, it is possible for color descriptions to be blank! In such a situation, force the color variable to all caps 'NULL' value so it gets included in the output file
+			if colorName is None:				# It's possible for color descriptions to be blank! If so, force the color variable to 'NULL' so it gets included in the output file
 				colorName = "NULL"
 
 			# If the web color description formatted by the business is in ALL CAPS contains a numeric digit, log the product details to output file
