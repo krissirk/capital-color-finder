@@ -40,11 +40,12 @@ def evaluateColorsInResponse(styles, output, page):
 		for colors in items["styleColors"]:		# Iterate through each child style color within a style
 
 			colorName = colors["colorName"]		# Grab web color description for child style color
-
+			
 			if colorName is None:				# Apparently, it is possible for color descriptions to be blank! In such a situation, force the color variable to all caps 'NULL' value so it gets included in the output file
 				colorName = "NULL"
 
-			if colorName == colorName.upper():	# Is the web color description formatted by the business in ALL CAPS? If so, log the product details to output file
+			# If the web color description formatted by the business is in ALL CAPS contains a numeric digit, log the product details to output file
+			if (colorName == colorName.upper()) or (any(char.isdigit() for char in colorName)):
 
 				# Grab parent style's inventory status from productStyle API
 				if items["_links"]["self"]:
