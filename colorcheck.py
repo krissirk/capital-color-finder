@@ -23,11 +23,16 @@ else:
 	sys.exit(2)
 
 # Get key value required to access Product Catalog API from environment variable set by secret shell script and assemble header for request; exit if variable not set
+# Also set custom user-agent info for header
 if os.environ.get("MY_API_KEY"):
 	MY_API_KEY = str(os.environ.get("MY_API_KEY"))
-	apiKey = {"ApiKey": MY_API_KEY}
+	MY_EMAIL = str(os.environ.get("MY_EMAIL"))
+	myHeader = {"ApiKey": MY_API_KEY, 
+				"User-Agent": "Color Format Checker Python Script", 
+				"From": MY_EMAIL
+				}
 else:
-	print "Environment variable not set - cannot proceed"
+	print "Environment variables not set - cannot proceed"
 	sys.exit(2)
 
 ##################### FUNCTION DEFINITIONS #####################
@@ -77,16 +82,16 @@ def evaluateColorsInResponse(styles, output, page):
 	return
 
 # Function that makes Product Catalog API request until successful response obtained, returns that response
-def apiRequest(url, key):
+def apiRequest(url):
 
-	apiResponse = requests.get(url, headers=key)
+	apiResponse = requests.get(url, headers=myHeader)
 	apiResponse.close()
 	apiStatusCode = apiResponse.status_code
 
 	# Make sure initial request is successful; if not, re-request until successful response obtained
 	while apiStatusCode != 200:
 		print url, " - ", apiStatusCode, ": ", apiResponse.elapsed
-		apiResponse = requests.get(url, headers=key)
+		apiResponse = requests.get(url, headers=myHeader)
 		apiResponse.close()
 		apiStatusCode = apiResponse.status_code
 
@@ -105,7 +110,7 @@ reportwriter = csv.writer(csvfile)
 reportwriter.writerow(["styleColorNumber","colorStartDate","colorEndDate","styleName","webColorDescription","promptColorName","searchColor","styleInventoryStatus","apiPageNumber"])
 
 # Initial Product Catalog API request in the script - this gets the first batch of products to be processed and determines how many total pages need to be iterated through
-catalogResponse = apiRequest(apiUrl, apiKey)
+catalogResponse = apiRequest(apiUrl)
 pages = catalogResponse.json()["page"]["totalPages"]	# Grab total number of pages in Product Catalog API response
 print "Total pages to process: ", pages					# Log total number of pages that need to be processed to the console
 
@@ -125,7 +130,7 @@ else:
 while x < pages:
 
 	# Make next request of Product Catalog and check the resulting response for problematic style colors
-	catalogResponse = apiRequest(nextLink, apiKey)
+	catalogResponse = apiRequest(nextLink)
 	evaluateColorsInResponse(catalogResponse.json()["_embedded"]["styles"],reportwriter,x)
 
 	# Grab URL of 'next' pagination link for subsequent request until the data element is no longer in the response (which will only happen during final iteration of loop)
