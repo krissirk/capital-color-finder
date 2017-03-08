@@ -26,10 +26,10 @@ else:
 # Also set custom user-agent info for header
 if os.environ.get("MY_API_KEY"):
 	MY_API_KEY = str(os.environ.get("MY_API_KEY"))
-	MY_EMAIL = str(os.environ.get("MY_EMAIL"))
+	CONTACT = str(os.environ.get("CONTACT"))
 	myHeader = {"ApiKey": MY_API_KEY, 
 				"User-Agent": "Color Format Checker Python Script", 
-				"From": MY_EMAIL
+				"From": CONTACT
 				}
 else:
 	print "Environment variables not set - cannot proceed"
