@@ -16,10 +16,10 @@ if len(sys.argv) > 1:
 	if inputArg in brands:
 		processingInputs = brands[inputArg]
 	else:
-		print "Invalid argument -- enter 'gap', 'gapfs', 'br, 'brfs', 'athleta', or 'oldnavy' in order to run this script"
+		print("Invalid argument -- enter 'gap', 'gapfs', 'br, 'brfs', 'athleta', or 'oldnavy' in order to run this script")
 		sys.exit(2)
 else:
-	print "No argument found -- enter 'gap', 'gapfs', 'br, 'brfs', 'athleta', or 'oldnavy' in order to run this script"
+	print("No argument found -- enter 'gap', 'gapfs', 'br, 'brfs', 'athleta', or 'oldnavy' in order to run this script")
 	sys.exit(2)
 
 # Get key value required to access Product Catalog API from environment variable set by secret shell script and assemble header for request; exit if variable not set
@@ -32,7 +32,7 @@ if os.environ.get("MY_API_KEY"):
 				"From": CONTACT
 				}
 else:
-	print "Environment variables not set - cannot proceed"
+	print("Environment variables not set - cannot proceed")
 	sys.exit(2)
 
 ##################### FUNCTION DEFINITIONS #####################
@@ -76,8 +76,8 @@ def evaluateColorsInResponse(styles, output, page):
 					isInStock = ""
 
 				# Write product details to output file; response page number recorded to assist with troubleshooting problematic data
-				output.writerow([colors["businessId"].encode('utf-8'), colors["startDate"].encode('utf-8'), colorEndDate, items["name"].encode('utf-8'),
-					colorName.encode('utf-8'), colors["promptColorName"].encode('utf-8'), searchColor, isInStock, page])
+				output.writerow([colors["businessId"], colors["startDate"], colorEndDate, items["name"],
+					colorName, colors["promptColorName"], searchColor, isInStock, page])
 
 	return
 
@@ -90,7 +90,7 @@ def apiRequest(url):
 
 	# Make sure initial request is successful; if not, re-request until successful response obtained
 	while apiStatusCode != 200:
-		print url, " - ", apiStatusCode, ": ", apiResponse.elapsed
+		print(url, " - ", apiStatusCode, ": ", apiResponse.elapsed)
 		apiResponse = requests.get(url, headers=myHeader)
 		apiResponse.close()
 		apiStatusCode = apiResponse.status_code
@@ -99,24 +99,25 @@ def apiRequest(url):
 
 ##################### END OF FUNCTION DEFINITIONS ####################
 
-print "Start: ", time.asctime( time.localtime(time.time()) )	#Log script start time to console
+print("Start: ", time.asctime( time.localtime(time.time()) ))	#Log script start time to console
 
 # Product Catalog API url to access all active and approved products for a business unit; do not need SKUs, so excluding them from the response makes things go faster
 apiUrl = "https://api.gap.com/commerce/product-catalogs/catalog/{0}?&size=222&active=true&approvalStatus=APPROVED&includeSkus=false".format(processingInputs[1])
 
 # Prepare output file, write header row
-csvfile = open (processingInputs[0], "wb") 
+csvfile = open (processingInputs[0], "w") 
 reportwriter = csv.writer(csvfile)
-reportwriter.writerow(["styleColorNumber","colorStartDate","colorEndDate","styleName","webColorDescription","promptColorName","searchColor","styleInventoryStatus","apiPageNumber"])
+reportwriter.writerow(["styleColorNumber","colorStartDate","colorEndDate","styleName",
+					   "webColorDescription","promptColorName","searchColor","styleInventoryStatus","apiPageNumber"])
 
 # Initial Product Catalog API request in the script - this gets the first batch of products to be processed and determines how many total pages need to be iterated through
 catalogResponse = apiRequest(apiUrl)
 pages = catalogResponse.json()["page"]["totalPages"]	# Grab total number of pages in Product Catalog API response
-print "Total pages to process: ", pages					# Log total number of pages that need to be processed to the console
+print("Total pages to process: ", pages)				# Log total number of pages that need to be processed to the console
 
 # Check the initial response for problematic style colors
 evaluateColorsInResponse(catalogResponse.json()["_embedded"]["styles"],reportwriter,0)	
-print "1 page processed"
+print("1 page processed")
 
 # Grab URL of 'next' pagination link in Product Catalog response if it exists in order to process during first iteration of while loop
 if "next" in catalogResponse.json()["_links"]:
@@ -139,7 +140,7 @@ while x < pages:
 
 	# Increment counter & log progress to console
 	x += 1
-	print x, "pages processed"
+	print(x, "pages processed")
 
 csvfile.close()												# Close output file
-print "End: ", time.asctime( time.localtime(time.time()) )	# Log script completion ending time to console
+print("End: ", time.asctime( time.localtime(time.time()) ))	# Log script completion ending time to console
