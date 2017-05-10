@@ -3,8 +3,8 @@ import requests, json, time, csv, os, sys
 # Initialize dictionary that contains inputs for Product Catalog API requests and output .csv file
 brands = 	{"gap": ("gap-us_allcaps-color-names.csv", "gp/us"),
 			 "gapfs": ("gapfactory-us_allcaps-color-names.csv", "gpfs/us"),
-			 "br": ("br-us_allcaps-color-names.csv",  "br/us"), 
-			 "brfs": ("brfs-us_allcaps-color-names.csv", "brfs/us"), 
+			 "br": ("br-us_allcaps-color-names.csv",  "br/us"),
+			 "brfs": ("brfs-us_allcaps-color-names.csv", "brfs/us"),
 			 "athleta": ("athleta_allcaps-color-names.csv", "at/us"),
 			 "oldnavy": ("on-us_allcaps-color-names.csv", "on/us")
 			}
@@ -12,7 +12,7 @@ brands = 	{"gap": ("gap-us_allcaps-color-names.csv", "gp/us"),
 # Set variables for processing based on argument passed when script executed; exit if no or incorrect argument passed
 if len(sys.argv) > 1:
 	inputArg = str(sys.argv[1]).lower()
-	
+
 	if inputArg in brands:
 		processingInputs = brands[inputArg]
 	else:
@@ -27,8 +27,8 @@ else:
 if os.environ.get("MY_API_KEY"):
 	MY_API_KEY = str(os.environ.get("MY_API_KEY"))
 	CONTACT = str(os.environ.get("CONTACT"))
-	myHeader = {"ApiKey": MY_API_KEY, 
-				"User-Agent": "Color Format Checker Python Script", 
+	myHeader = {"ApiKey": MY_API_KEY,
+				"User-Agent": "Color Format Checker Python Script",
 				"From": CONTACT
 				}
 else:
@@ -46,7 +46,7 @@ def evaluateColorsInResponse(styles, output, page):
 		for colors in items["styleColors"]:		# Iterate through each child style color within a style
 
 			colorName = colors["colorName"]		# Grab web color description for child style color
-			
+
 			if colorName is None:				# It's possible for color descriptions to be blank! If so, force the color variable to 'NULL' so it gets included in the output file
 				colorName = "NULL"
 
@@ -58,7 +58,7 @@ def evaluateColorsInResponse(styles, output, page):
 					productStyleUrl = items["_links"]["self"]["href"] + "&appId=kr5v4qu" # Update the 'appId' parameter to identify yourself
 					productStyleResponse = requests.get(productStyleUrl)
 					productStyleResponse.close()
-					
+
 				# Conditionally set variables to write to output file
 				if colors["endDate"]:
 					colorEndDate = colors["endDate"]
@@ -84,16 +84,29 @@ def evaluateColorsInResponse(styles, output, page):
 # Function that makes Product Catalog API request until successful response obtained, returns that response
 def apiRequest(url):
 
-	apiResponse = requests.get(url, headers=myHeader)
-	apiResponse.close()
-	apiStatusCode = apiResponse.status_code
+	apiStatusCode = 0
+
+	try:
+		apiResponse = requests.get(url, headers=myHeader, timeout=120)
+		apiResponse.close()
+		apiStatusCode = apiResponse.status_code
+	except:
+		None
 
 	# Make sure initial request is successful; if not, re-request until successful response obtained
 	while apiStatusCode != 200:
-		print(url, " - ", apiStatusCode, ": ", apiResponse.elapsed)
-		apiResponse = requests.get(url, headers=myHeader)
-		apiResponse.close()
-		apiStatusCode = apiResponse.status_code
+
+		try:
+			print(url, " - ", apiStatusCode, ": ", apiResponse.elapsed)
+		except:
+			print(url + " done waiting for response - will retry.")
+
+		try:
+			apiResponse = requests.get(url, headers=myHeader, timeout=120)
+			apiResponse.close()
+			apiStatusCode = apiResponse.status_code
+		except:
+			print(url + " done waiting for response - will retry.")
 
 	return apiResponse
 
@@ -105,7 +118,7 @@ print("Start: ", time.asctime( time.localtime(time.time()) ))	#Log script start 
 apiUrl = "https://api.gap.com/commerce/product-catalogs/catalog/{0}?&size=222&active=true&approvalStatus=APPROVED&includeSkus=false".format(processingInputs[1])
 
 # Prepare output file, write header row
-csvfile = open (processingInputs[0], "w") 
+csvfile = open (processingInputs[0], "w")
 reportwriter = csv.writer(csvfile)
 reportwriter.writerow(["styleColorNumber","colorStartDate","colorEndDate","styleName",
 					   "webColorDescription","promptColorName","searchColor","styleInventoryStatus","apiPageNumber"])
@@ -116,7 +129,7 @@ pages = catalogResponse.json()["page"]["totalPages"]	# Grab total number of page
 print("Total pages to process: ", pages)				# Log total number of pages that need to be processed to the console
 
 # Check the initial response for problematic style colors
-evaluateColorsInResponse(catalogResponse.json()["_embedded"]["styles"],reportwriter,0)	
+evaluateColorsInResponse(catalogResponse.json()["_embedded"]["styles"],reportwriter,0)
 print("1 page processed")
 
 # Grab URL of 'next' pagination link in Product Catalog response if it exists in order to process during first iteration of while loop
