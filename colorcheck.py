@@ -125,35 +125,49 @@ reportwriter.writerow(["styleColorNumber","colorStartDate","colorEndDate","style
 
 # Initial Product Catalog API request in the script - this gets the first batch of products to be processed and determines how many total pages need to be iterated through
 catalogResponse = apiRequest(apiUrl)
-pages = catalogResponse.json()["page"]["totalPages"]	# Grab total number of pages in Product Catalog API response
-print("Total pages to process: ", pages)				# Log total number of pages that need to be processed to the console
 
-# Check the initial response for problematic style colors
-evaluateColorsInResponse(catalogResponse.json()["_embedded"]["styles"],reportwriter,0)
-print("1 page processed")
+try:
+	pages = catalogResponse.json()["page"]["totalPages"]	# Grab total number of pages in Product Catalog API response
+	print("Total pages to process: ", pages)				# Log total number of pages that need to be processed to the console
 
-# Grab URL of 'next' pagination link in Product Catalog response if it exists in order to process during first iteration of while loop
-if "next" in catalogResponse.json()["_links"]:
-	nextLink = catalogResponse.json()["_links"]["next"]["href"]
-	x = 1	# Initialize counter for while loop that will ensure the entire Product Catalog is processed
+	# Check the initial response for problematic style colors
+	evaluateColorsInResponse(catalogResponse.json()["_embedded"]["styles"],reportwriter,0)
+	print("1 page processed")
 
-else:
-	x = pages + 1 # If no 'next' link, initialize counter such that it doesn't go into the while loop
+	# Grab URL of 'next' pagination link in Product Catalog response if it exists in order to process during first iteration of while loop
+	if "next" in catalogResponse.json()["_links"]:
+		nextLink = catalogResponse.json()["_links"]["next"]["href"]
+		x = 1	# Initialize counter for while loop that will ensure the entire Product Catalog is processed
+
+	else:
+		x = pages + 1 # If no 'next' link, initialize counter such that it doesn't go into the while loop
+
+	except ValueError as err:
+		print("Could not process initial response {0} due to error {1}.".format(initialApiUrl, err))
+
+		#  Set variables to 0 to ensure script doesn't enter while loop to process additional responses becuase next URL isn't available
+		x = 0
+		pages = 0
 
 # Process all remaining pages of Product Catalog response
 while x < pages:
 
 	# Make next request of Product Catalog and check the resulting response for problematic style colors
 	catalogResponse = apiRequest(nextLink)
-	evaluateColorsInResponse(catalogResponse.json()["_embedded"]["styles"],reportwriter,x)
 
-	# Grab URL of 'next' pagination link for subsequent request until the data element is no longer in the response (which will only happen during final iteration of loop)
-	if "next" in catalogResponse.json()["_links"]:
-		nextLink = catalogResponse.json()["_links"]["next"]["href"]
+	try:
+		evaluateColorsInResponse(catalogResponse.json()["_embedded"]["styles"],reportwriter,x)
 
-	# Increment counter & log progress to console
-	x += 1
-	print(x, "pages processed")
+		# Grab URL of 'next' pagination link for subsequent request until the data element is no longer in the response (which will only happen during final iteration of loop)
+		if "next" in catalogResponse.json()["_links"]:
+			nextLink = catalogResponse.json()["_links"]["next"]["href"]
+
+		# Increment counter & log progress to console
+		x += 1
+		print(x, "pages processed")
+
+	except ValueError as err:
+		print("Could not process initial response {0} due to error {1}.".format(nextLink, err))
 
 csvfile.close()												# Close output file
 print("End: ", time.asctime( time.localtime(time.time()) ))	# Log script completion ending time to console
